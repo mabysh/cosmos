@@ -5,4 +5,6 @@ authors = ["mabysh <max.byshnev@protonmail.com>"]
 
 [dependencies]
 nonblock = { git = "https://github.com/mabysh/nonblock-rs" }
-tokio = "0.1.4"
+tokio = "0.1.5"
+termion = "1.5.1"
+tui = "0.2.1"
