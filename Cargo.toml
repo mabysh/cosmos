@@ -8,3 +8,5 @@ nonblock = { git = "https://github.com/mabysh/nonblock-rs" }
 tokio = "0.1.5"
 termion = "1.5.1"
 tui = "0.2.1"
+env_logger = "0.5.6"
+log = "0.4.0"

@@ -15,14 +15,9 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    fn default() -> Runtime {
-        let rt = setup_tokio_runtime(4);
+    pub fn with_pool_size(size: usize) -> Runtime {
+        let rt = setup_tokio_runtime(size);
         Runtime { tokio_runtime: rt }
-    }
-
-    fn from_args(args: Args) -> Runtime {
-        // TODO process args
-        Runtime::default()
     }
 
     pub fn spawn<F>(&self, f: F)
@@ -30,14 +25,6 @@ impl Runtime {
         F: Future<Item = (), Error = ()> + 'static + Send,
     {
         &mut self.tokio_runtime.spawn(f);
-    }
-}
-
-pub fn init_runtime(a: Option<Args>) -> Runtime {
-    // TODO preload preference files here
-    match a {
-        Some(c) => Runtime::from_args(c),
-        None => Runtime::default(),
     }
 }
 
