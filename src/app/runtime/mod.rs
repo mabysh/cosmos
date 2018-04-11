@@ -3,7 +3,6 @@ pub mod events;
 use nonblock::input_stream;
 
 use std::io;
-use std::env::Args;
 
 use tokio::prelude::*;
 use tokio::runtime::{Builder, Runtime as TokioRuntime};
@@ -20,7 +19,7 @@ impl Runtime {
         Runtime { tokio_runtime: rt }
     }
 
-    pub fn spawn<F>(&self, f: F)
+    pub fn spawn<F>(&mut self, f: F)
     where
         F: Future<Item = (), Error = ()> + 'static + Send,
     {

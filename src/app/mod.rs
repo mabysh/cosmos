@@ -1,15 +1,14 @@
 pub mod runtime;
 pub mod ui;
 
-use tokio::runtime::Runtime as TokioRuntime;
 use tui::backend::RawBackend;
 use tui::Terminal;
 
 use self::runtime::Runtime;
+use super::errors::CosmError;
 
 use std::env::Args;
-use std::io::{self, ErrorKind};
-use std::error;
+use std::io;
 
 pub struct CosmosApp {
     runtime: Runtime,
@@ -22,7 +21,9 @@ impl CosmosApp {
         CosmosConfig::default()
     }
 
-    pub fn start_application() {}
+    pub fn start_application(&mut self) {
+        runtime::listen_stdin(self.get_runtime_mut());
+    }
 
     pub fn get_runtime_mut(&mut self) -> &mut Runtime {
         &mut self.runtime
@@ -33,7 +34,7 @@ impl CosmosApp {
     }
 }
 
-struct CosmosConfig {
+pub struct CosmosConfig {
     thrd_pool_size: usize,
 }
 
@@ -42,17 +43,16 @@ impl CosmosConfig {
         CosmosConfig { thrd_pool_size: 4 }
     }
 
-    pub fn from_args(args: Args) -> CosmosConfig {
-        let config = CosmosConfig::default();
-        let config_valid = true;
+    pub fn from_args(mut self, mut args: Args) -> CosmosConfig {
+        let mut args_valid = true;
         loop {
             match args.next() {
-                Some(arg) => match parse_arg(&args, &arg, config) {
-                    Ok(config) => {
-                        config = config;
-                    }
+                Some(arg) => match parse_arg(&mut args, &arg, &mut self) {
+                    Ok(_) => {}
                     Err(e) => {
-                        config_valid = false;
+                        //TODO log errors
+                        args_valid = false;
+                        break;
                     }
                 },
                 None => {
@@ -60,22 +60,25 @@ impl CosmosConfig {
                 }
             }
         }
-        if config_valid {
-            config
+        if args_valid {
+            self
         } else {
             CosmosConfig::default()
         }
     }
 
-    pub fn with_pool_size(self, size: usize) -> CosmosConfig {
+    pub fn with_thread_pool_size(mut self, size: usize) -> CosmosConfig {
         // TODO CHECK AND LOG INVALID PARAMETER
         self.thrd_pool_size = size;
         self
     }
 
-    fn build(self) -> CosmosApp {}
+    fn with_thread_pool_size_mut(&mut self, size: usize) {
+        // TODO CHECK AND LOG INVALID PARAMETER
+        self.thrd_pool_size = size;
+    }
 
-    pub fn start_application(self) -> CosmosApp {
+    pub fn build(self) -> CosmosApp {
         let rt = Runtime::with_pool_size(self.thrd_pool_size);
         let term = init_terminal().expect("Failed to initialize terminal");
         CosmosApp {
@@ -86,36 +89,31 @@ impl CosmosConfig {
     }
 }
 
-fn parse_arg(
-    args: &Args,
-    arg: &str,
-    config: CosmosConfig,
-) -> Result<CosmosConfig, Box<error::Error>> {
+fn parse_arg(args: &mut Args, arg: &str, config: &mut CosmosConfig) -> Result<(), CosmError> {
     match arg {
         "-p" => match args.next() {
             Some(next_arg) => match next_arg.parse::<usize>() {
-                Err(e) => return Err(Box::new(e)),
-                Ok(size) => return Ok(config.with_pool_size(size)),
+                Err(e) => {
+                    return Err(CosmError::new(
+                        format!("Invalid pool size: {}", next_arg).as_str(),
+                    ))
+                }
+                Ok(size) => {
+                    config.with_thread_pool_size_mut(size);
+                    return Ok(());
+                }
             },
             None => {
-                let e = io::Error::from(ErrorKind::NotFound);
-                return Err(Box::new(e));
+                return Err(CosmError::new("Expected pool size parameter not found."));
             }
         },
         _ => {
             // log invalid parameter
-            return Err(Box::new(io::Error::from(ErrorKind::InvalidInput)));
+            return Err(CosmError::new(
+                format!("Unexpected argument: {}", arg).as_str(),
+            ));
         }
     }
-}
-
-pub fn start_cosmos(args: Option<Args>) {
-    match args {
-        Some(a) => {}
-        None => {}
-    }
-    let app = CosmosApp::initialize();
-    runtime::listen_stdin(app.get_runtime_mut());
 }
 
 fn init_terminal() -> Result<Terminal<RawBackend>, io::Error> {
