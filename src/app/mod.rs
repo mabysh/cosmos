@@ -5,7 +5,7 @@ use tui::backend::RawBackend;
 use tui::Terminal;
 
 use self::runtime::Runtime;
-use super::errors::CosmError;
+use super::errors::{CosmError, CosmErrorKind};
 
 use std::env::Args;
 use std::io;
@@ -49,7 +49,7 @@ impl CosmosConfig {
             match args.next() {
                 Some(arg) => match parse_arg(&mut args, &arg, &mut self) {
                     Ok(_) => {}
-                    Err(e) => {
+                    Err(_e) => {
                         //TODO log errors
                         args_valid = false;
                         break;
@@ -73,7 +73,7 @@ impl CosmosConfig {
         self
     }
 
-    fn with_thread_pool_size_mut(&mut self, size: usize) {
+    fn set_thread_pool_size(&mut self, size: usize) {
         // TODO CHECK AND LOG INVALID PARAMETER
         self.thrd_pool_size = size;
     }
@@ -96,21 +96,29 @@ fn parse_arg(args: &mut Args, arg: &str, config: &mut CosmosConfig) -> Result<()
                 Err(e) => {
                     return Err(CosmError::new(
                         format!("Invalid pool size: {}", next_arg).as_str(),
+                        CosmErrorKind::InvalidArg,
+                        Some(CosmError::from_std_error(&e)),
                     ))
                 }
                 Ok(size) => {
-                    config.with_thread_pool_size_mut(size);
+                    config.set_thread_pool_size(size);
                     return Ok(());
                 }
             },
             None => {
-                return Err(CosmError::new("Expected pool size parameter not found."));
+                return Err(CosmError::new(
+                    "Pool size parameter not found.",
+                    CosmErrorKind::MissingArg,
+                    None,
+                ));
             }
         },
         _ => {
             // log invalid parameter
             return Err(CosmError::new(
-                format!("Unexpected argument: {}", arg).as_str(),
+                format!("Unexpected argument: '{}'", arg).as_str(),
+                CosmErrorKind::InvalidArg,
+                None,
             ));
         }
     }
