@@ -22,7 +22,7 @@ impl CosmosApp {
     }
 
     pub fn start_application(&mut self) {
-        runtime::listen_stdin(self.get_runtime_mut());
+        runtime::process_user_input(self);
     }
 
     pub fn get_runtime_mut(&mut self) -> &mut Runtime {
