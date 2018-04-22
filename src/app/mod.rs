@@ -1,36 +1,39 @@
-pub mod runtime;
-pub mod ui;
-
 use tui::backend::RawBackend;
 use tui::Terminal;
 
-use self::runtime::Runtime;
-use super::errors::{CosmError, CosmErrorKind};
+use errors::{CosmError, CosmErrorKind};
+use runtime;
+use ui;
 
 use std::env::Args;
-use std::io;
 
 pub struct CosmosApp {
-    runtime: Runtime,
     config: CosmosConfig,
     terminal: Terminal<RawBackend>,
 }
 
 impl CosmosApp {
-    pub fn configure() -> CosmosConfig {
-        CosmosConfig::default()
+    pub fn init(args: Args) -> CosmosApp {
+        debug!("Initializing cosmos..");
+        let terminal = ui::init_terminal().expect("Failed to initialize terminal");
+        let config = CosmosConfig::from_args(args);
+        CosmosApp {
+            config: config,
+            terminal: terminal,
+        }
     }
 
     pub fn start_application(&mut self) {
-        runtime::process_user_input(self);
+        debug!("Starting application..");
+        runtime::start_application(self);
     }
 
-    pub fn get_runtime_mut(&mut self) -> &mut Runtime {
-        &mut self.runtime
-    }
-
-    pub fn get_term_mut(&mut self) -> &mut Terminal<RawBackend> {
+    pub fn term_mut(&mut self) -> &mut Terminal<RawBackend> {
         &mut self.terminal
+    }
+
+    pub fn config_mut(&mut self) -> &mut CosmosConfig {
+        &mut self.config
     }
 }
 
@@ -39,20 +42,27 @@ pub struct CosmosConfig {
 }
 
 impl CosmosConfig {
-    fn default() -> CosmosConfig {
+    fn default() -> Self {
         CosmosConfig { thrd_pool_size: 4 }
     }
 
-    pub fn from_args(mut self, mut args: Args) -> CosmosConfig {
-        let mut args_valid = true;
+    pub fn from_args(mut args: Args) -> Self {
+        let mut config = CosmosConfig::default();
+        // skip first arg
+        args.next();
         loop {
             match args.next() {
-                Some(arg) => match parse_arg(&mut args, &arg, &mut self) {
+                Some(arg) => match parse_arg(&mut args, &arg, &mut config) {
                     Ok(_) => {}
-                    Err(_e) => {
-                        //TODO log errors
-                        args_valid = false;
-                        break;
+                    Err(e) => {
+                        // these are not fatal errors. if some args failed to parse, default values
+                        // will be used
+                        let er = CosmError::new(
+                            "Args parsing error",
+                            CosmErrorKind::ParseArgsError,
+                            Some(e),
+                        );
+                        error!("{}", er);
                     }
                 },
                 None => {
@@ -60,32 +70,17 @@ impl CosmosConfig {
                 }
             }
         }
-        if args_valid {
-            self
-        } else {
-            CosmosConfig::default()
-        }
+        config
     }
 
-    pub fn with_thread_pool_size(mut self, size: usize) -> CosmosConfig {
+    pub fn with_thread_pool_size(&mut self, size: usize) -> &mut Self {
         // TODO CHECK AND LOG INVALID PARAMETER
         self.thrd_pool_size = size;
         self
     }
 
-    fn set_thread_pool_size(&mut self, size: usize) {
-        // TODO CHECK AND LOG INVALID PARAMETER
-        self.thrd_pool_size = size;
-    }
-
-    pub fn build(self) -> CosmosApp {
-        let rt = Runtime::with_pool_size(self.thrd_pool_size);
-        let term = init_terminal().expect("Failed to initialize terminal");
-        CosmosApp {
-            runtime: rt,
-            terminal: term,
-            config: self,
-        }
+    pub fn pool_size(&self) -> usize {
+        self.thrd_pool_size
     }
 }
 
@@ -95,26 +90,32 @@ fn parse_arg(args: &mut Args, arg: &str, config: &mut CosmosConfig) -> Result<()
             Some(next_arg) => match next_arg.parse::<usize>() {
                 Err(e) => {
                     return Err(CosmError::new(
-                        format!("Invalid pool size: {}", next_arg).as_str(),
+                        format!(
+                            "Invalid pool size: {}. Using default value: {}.",
+                            next_arg,
+                            config.pool_size()
+                        ).as_str(),
                         CosmErrorKind::InvalidArg,
                         Some(CosmError::from_std_error(&e)),
                     ))
                 }
                 Ok(size) => {
-                    config.set_thread_pool_size(size);
+                    config.with_thread_pool_size(size);
                     return Ok(());
                 }
             },
             None => {
                 return Err(CosmError::new(
-                    "Pool size parameter not found.",
+                    format!(
+                        "Pool size parameter not found. Using default value: {}.",
+                        config.pool_size()
+                    ).as_str(),
                     CosmErrorKind::MissingArg,
                     None,
                 ));
             }
         },
         _ => {
-            // log invalid parameter
             return Err(CosmError::new(
                 format!("Unexpected argument: '{}'", arg).as_str(),
                 CosmErrorKind::InvalidArg,
@@ -122,9 +123,4 @@ fn parse_arg(args: &mut Args, arg: &str, config: &mut CosmosConfig) -> Result<()
             ));
         }
     }
-}
-
-fn init_terminal() -> Result<Terminal<RawBackend>, io::Error> {
-    let backend = RawBackend::new()?;
-    Terminal::new(backend)
 }

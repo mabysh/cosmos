@@ -37,6 +37,7 @@ impl CosmError {
 #[derive(Debug)]
 pub enum CosmErrorKind {
     StdLibError,
+    ParseArgsError,
     MissingArg,
     InvalidArg,
 }
@@ -59,7 +60,7 @@ impl Display for CosmError {
         let mut info = format!("*** CosmError ({:?}): {}", self.kind, self.description());
         match self.cause() {
             Some(er) => {
-                info.push_str(format!("\nCaused by: {}", er).as_str());
+                info.push_str(format!("\n\rCaused by: {}", er).as_str());
             }
             None => {}
         }
