@@ -9,7 +9,7 @@ tokio = { version = "0.1.5",  path = "tokio" }
 tokio-threadpool = { version = "0.1.2", path = "tokio/tokio-threadpool" }
 termion = "*"
 tui = "*"
-env_logger = "*"
+log4rs = "*"
 log = "*"
 
 [patch.crates-io]

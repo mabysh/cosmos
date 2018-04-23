@@ -74,8 +74,15 @@ impl CosmosConfig {
     }
 
     pub fn with_thread_pool_size(&mut self, size: usize) -> &mut Self {
-        // TODO CHECK AND LOG INVALID PARAMETER
-        self.thrd_pool_size = size;
+        if size == 0 {
+            error!(
+                "Invalid pool size parameter: {}. Using default value: {}",
+                size,
+                self.pool_size()
+            );
+        } else {
+            self.thrd_pool_size = size;
+        }
         self
     }
 
