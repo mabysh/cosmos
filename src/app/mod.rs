@@ -1,9 +1,10 @@
+mod editor;
+
 use tui::backend::RawBackend;
 use tui::Terminal;
 
 use errors::{CosmError, CosmErrorKind};
 use runtime;
-use ui;
 
 use std::env::Args;
 
@@ -15,7 +16,7 @@ pub struct CosmosApp {
 impl CosmosApp {
     pub fn init(args: Args) -> CosmosApp {
         debug!("Initializing cosmos..");
-        let terminal = ui::init_terminal().expect("Failed to initialize terminal");
+        let terminal = runtime::init_terminal().expect("Failed to initialize terminal");
         let config = CosmosConfig::from_args(args);
         CosmosApp {
             config: config,

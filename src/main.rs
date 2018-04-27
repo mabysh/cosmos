@@ -10,7 +10,6 @@ extern crate tui;
 mod app;
 mod runtime;
 mod errors;
-mod ui;
 
 use app::CosmosApp;
 
